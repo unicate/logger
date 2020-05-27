@@ -1,0 +1,22 @@
+{
+    "name": "unicate/logger",
+    "description": "Simple language detection.",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^7.0",
+        "psr/log": "1.1.3"
+    },
+    "authors": [
+        {
+            "name": "unicate",
+            "email": "mail2mail@gmx.ch"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Unicate\\Logger\\": "src/"
+        }
+    },
+    "minimum-stability": "stable"
+}
