@@ -1,6 +1,6 @@
 {
     "name": "unicate/logger",
-    "description": "Simple language detection.",
+    "description": "Basic PSR-3 compliant logger.",
     "type": "library",
     "license": "MIT",
     "require": {
