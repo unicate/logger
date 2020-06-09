@@ -8,13 +8,13 @@ use Psr\Log\InvalidArgumentException;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 
-class Logger implements LoggerInterface{
+class Logger implements LoggerInterface {
+
     private $logLevel;
     private $logsDir;
     private $supportedLogLevels;
-    private $archived;
 
-    function __construct(string $logLevel, string $logsDir) {
+    function __construct(string $logLevel, string $logsDir = '') {
         $this->logLevel = $logLevel;
         $this->logsDir = $logsDir;
         $this->supportedLogLevels = [
@@ -28,51 +28,35 @@ class Logger implements LoggerInterface{
     }
 
     public function emergency($message, array $context = array()) {
-        if ($this->logThisLevel(LogLevel::EMERGENCY)) {
-            $this->log(LogLevel::EMERGENCY, $message, $context);
-        }
+        $this->log(LogLevel::EMERGENCY, $message, $context);
     }
 
     public function alert($message, array $context = array()) {
-        if ($this->logThisLevel(LogLevel::ALERT)) {
-            $this->log(LogLevel::ALERT, $message, $context);
-        }
+        $this->log(LogLevel::ALERT, $message, $context);
     }
 
     public function critical($message, array $context = array()) {
-        if ($this->logThisLevel(LogLevel::CRITICAL)) {
-            $this->log(LogLevel::CRITICAL, $message, $context);
-        }
+        $this->log(LogLevel::CRITICAL, $message, $context);
     }
 
     public function error($message, array $context = array()) {
-        if ($this->logThisLevel(LogLevel::ERROR)) {
-            $this->log(LogLevel::ERROR, $message, $context);
-        }
+        $this->log(LogLevel::ERROR, $message, $context);
     }
 
     public function warning($message, array $context = array()) {
-        if ($this->logThisLevel(LogLevel::WARNING)) {
-            $this->log(LogLevel::WARNING, $message, $context);
-        }
+        $this->log(LogLevel::WARNING, $message, $context);
     }
 
     public function notice($message, array $context = array()) {
-        if ($this->logThisLevel(LogLevel::NOTICE)) {
-            $this->log(LogLevel::NOTICE, $message, $context);
-        }
+        $this->log(LogLevel::NOTICE, $message, $context);
     }
 
     public function info($message, array $context = array()) {
-        if ($this->logThisLevel(LogLevel::INFO)) {
-            $this->log(LogLevel::INFO, $message, $context);
-        }
+        $this->log(LogLevel::INFO, $message, $context);
     }
 
     public function debug($message, array $context = array()) {
-        if ($this->logThisLevel(LogLevel::DEBUG)) {
-            $this->log(LogLevel::DEBUG, $message, $context);
-        }
+        $this->log(LogLevel::DEBUG, $message, $context);
     }
 
     private function logThisLevel($callerLogLevel): bool {
@@ -81,7 +65,7 @@ class Logger implements LoggerInterface{
         return $callerLogLevelInt <= $currentLogLevelInt;
     }
 
-    function interpolate($message, array $context = array()): string {
+    private function interpolate($message, array $context = array()): string {
         // build a replacement array with braces around the context keys
         $replace = array();
         foreach ($context as $key => $val) {
@@ -95,37 +79,35 @@ class Logger implements LoggerInterface{
     }
 
     public function log($level, $message, array $context = array()) {
-        $dateTime = (new \DateTimeImmutable('now'))->format('Y-m-d H:i:s.u');
-        $logFileName = (new \DateTimeImmutable('now'))->format('Y-m-d') . '_nofw_log.txt';
-        $message = $this->interpolate($message, $context);
-        $logEntry = '' .
-            $dateTime . ' ' .
-            str_pad(strtoupper($level), 9) . ' ' .
-            $this->interpolate($message, $context) . ' ' .
-            PHP_EOL;
+        if ($this->logThisLevel($level)) {
+            $message = $this->interpolate($message, $context);
+            if (empty($this->logsDir)) {
+                $this->writeToStdOut($level, $message);
+            } else {
+                $this->writeToFile($level, $message);
+            }
+            return $message;
+        }
+    }
+
+    private function writeToStdOut(string $level, string $message) {
+        $ts = (new \DateTimeImmutable('now'))->format('Y-m-d H:i:s');
+        fwrite(STDOUT, $ts . ' ' . str_pad(strtoupper($level), 9) . ' ' . $message . PHP_EOL);
+    }
+
+    private function writeToFile(string $level, string $message) {
+        $now = new \DateTimeImmutable('now');
+        $ts = $now->format('Y-m-d H:i:s.u');
+        $logEntry = $ts . ' ' . str_pad(strtoupper($level), 9) . ' ' . $message . ' ' . PHP_EOL;
+        $logFileName = $now->format('Y-m-d') . '_log.txt';
         try {
             $fh = fopen($this->logsDir . '/' . $logFileName, 'a');
             fwrite($fh, $logEntry);
             fclose($fh);
-            $this->archiveLog($logFileName);
         } catch (\Throwable $e) {
-            throw new \RuntimeException("Could not open logs file!", 0, $e);
+            throw new \RuntimeException("Could not open log file!", 0, $e);
         }
     }
 
-    private function archiveLog ($logFileName) {
-        if ($this->archived == true) {
-            return;
-        }
-        $files = array_diff(scandir($this->logsDir), array('..', '.'));
-        foreach ($files as $file) {
-            $filePath = $this->logsDir . '/' . $file;
-            if (!is_dir($filePath) && $file !== $logFileName) {
-                rename($filePath, $this->logsDir . '/archive/'. $file);
-            }
-            $this->archived = true;
-        }
-
-    }
 
 }
