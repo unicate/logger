@@ -12,16 +12,21 @@ class Logger implements LoggerInterface {
 
     private $logLevel;
     private $logsDir;
+    private $logFileName;
     private $supportedLogLevels;
 
-    function __construct(string $logLevel, string $logsDir = '') {
+    function __construct(string $logLevel, string $logsDir = '', string $logFileName = '{Y-m-d}-log.txt') {
         $this->logLevel = $logLevel;
         $this->logsDir = $logsDir;
+        $this->logFileName = $logFileName;
+
+        // Ordered by importance! Only entries <= current LogLevel will be logged.
         $this->supportedLogLevels = [
             LogLevel::EMERGENCY, LogLevel::ALERT, LogLevel::CRITICAL,
             LogLevel::ERROR, LogLevel::WARNING, LogLevel::NOTICE,
             LogLevel::INFO, LogLevel::DEBUG
         ];
+
         if (!in_array($this->logLevel, $this->supportedLogLevels)) {
             throw new InvalidArgumentException("Log-Level \"$this->logLevel\" is not supported.");
         }
@@ -60,6 +65,7 @@ class Logger implements LoggerInterface {
     }
 
     private function logThisLevel($callerLogLevel): bool {
+        // Decides if the entry should be logged, according to position in array $this->supportedLogLevels.
         $currentLogLevelInt = array_search($this->logLevel, $this->supportedLogLevels);
         $callerLogLevelInt = array_search($callerLogLevel, $this->supportedLogLevels);
         return $callerLogLevelInt <= $currentLogLevelInt;
@@ -81,6 +87,8 @@ class Logger implements LoggerInterface {
     public function log($level, $message, array $context = array()) {
         if ($this->logThisLevel($level)) {
             $message = $this->interpolate($message, $context);
+
+            // If no LogsDir is provided we write to StdOut
             if (empty($this->logsDir)) {
                 $this->writeToStdOut($level, $message);
             } else {
@@ -96,10 +104,19 @@ class Logger implements LoggerInterface {
     }
 
     private function writeToFile(string $level, string $message) {
+        // Create timestamp
         $now = new \DateTimeImmutable('now');
         $ts = $now->format('Y-m-d H:i:s.u');
+
+        // Logfile entry line output
         $logEntry = $ts . ' ' . str_pad(strtoupper($level), 9) . ' ' . $message . ' ' . PHP_EOL;
-        $logFileName = $now->format('Y-m-d') . '_log.txt';
+
+        // Replace timestamp pattern in filename
+        preg_match('/{(.*?)}/', $this->logFileName, $datePattern);
+        $datePattern = count($datePattern) < 2 ? '' : $datePattern[1];
+        $logFileName = str_replace('{'.$datePattern.'}', $now->format($datePattern), $this->logFileName);
+
+        // Write file
         try {
             $fh = fopen($this->logsDir . '/' . $logFileName, 'a');
             fwrite($fh, $logEntry);
